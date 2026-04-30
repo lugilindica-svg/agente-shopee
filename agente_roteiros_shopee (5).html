@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agente Roteiros LuGil</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #f5f4f0; color: #1a1a18;
+  min-height: 100vh; padding: 0 0 60px;
+}
+.top-bar {
+  background: #ee4d2d; padding: 12px 16px;
+  position: sticky; top: 0; z-index: 20;
+  box-shadow: 0 2px 8px rgba(238,77,45,0.3);
+}
+.top-bar h1 { color: #fff; font-size: 16px; font-weight: 700; }
+.top-bar p { color: rgba(255,255,255,0.8); font-size: 11px; margin-top: 1px; }
+.container { max-width: 600px; margin: 0 auto; padding: 0 16px; }
+
+.setup-card {
+  background: #fff; border-radius: 12px; padding: 14px;
+  margin: 14px 0 0; border: 1.5px solid #ffd5cc;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.setup-title { font-size: 13px; font-weight: 700; color: #ee4d2d; margin-bottom: 6px; }
+.setup-steps { font-size: 12px; color: #555; line-height: 1.7; margin-bottom: 10px; }
+.setup-steps a { color: #ee4d2d; font-weight: 600; }
+.key-row { display: flex; gap: 8px; }
+.key-input {
+  flex: 1; border: 1.5px solid #e8e7e2; border-radius: 8px;
+  padding: 9px 12px; font-size: 12px; color: #1a1a18;
+  background: #fafaf8; font-family: monospace;
+}
+.key-input:focus { outline: none; border-color: #ee4d2d; }
+.key-btn {
+  padding: 9px 16px; background: #ee4d2d; color: #fff;
+  border: none; border-radius: 8px; font-size: 13px;
+  font-weight: 700; cursor: pointer; font-family: inherit;
+}
+.key-status { font-size: 11px; margin-top: 6px; display: none; }
+.key-status.ok { color: #3B6D11; display: block; }
+.key-status.err { color: #A32D2D; display: block; }
+
+.tabs {
+  display: flex; margin: 14px 0 0; overflow-x: auto;
+  scrollbar-width: none; background: #fff;
+  border-radius: 12px; padding: 4px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08); gap: 2px;
+}
+.tabs::-webkit-scrollbar { display: none; }
+.tab {
+  flex: 0 0 auto; padding: 7px 11px; font-size: 11px; font-weight: 600;
+  border-radius: 8px; cursor: pointer; border: none;
+  background: transparent; color: #888; white-space: nowrap;
+  font-family: inherit; transition: all 0.15s;
+}
+.tab.active { background: #ee4d2d; color: #fff; }
+
+.panel { display: none; margin-top: 14px; }
+.panel.active { display: block; }
+
+/* CHAT */
+.chat-container {
+  background: #fff; border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  display: flex; flex-direction: column; height: 500px; overflow: hidden;
+}
+.chat-messages {
+  flex: 1; overflow-y: auto; padding: 16px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.msg { display: flex; gap: 8px; align-items: flex-start; }
+.msg.user { flex-direction: row-reverse; }
+.msg-avatar {
+  width: 28px; height: 28px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; flex-shrink: 0; margin-top: 2px;
+}
+.msg.bot .msg-avatar { background: #ee4d2d; color: #fff; }
+.msg.user .msg-avatar { background: #f0efe9; color: #666; }
+.msg-bubble {
+  max-width: 80%; padding: 10px 13px; border-radius: 12px;
+  font-size: 13px; line-height: 1.6; white-space: pre-wrap;
+}
+.msg.bot .msg-bubble { background: #f5f4f0; color: #1a1a18; border-radius: 2px 12px 12px 12px; }
+.msg.user .msg-bubble { background: #ee4d2d; color: #fff; border-radius: 12px 2px 12px 12px; }
+.chat-input-row {
+  display: flex; gap: 8px; padding: 12px;
+  border-top: 1px solid #f0efe9;
+}
+.chat-input {
+  flex: 1; border: 1.5px solid #e8e7e2; border-radius: 10px;
+  padding: 10px 12px; font-size: 14px; color: #1a1a18;
+  background: #fafaf8; font-family: inherit; resize: none; max-height: 100px;
+}
+.chat-input:focus { outline: none; border-color: #ee4d2d; }
+.chat-send {
+  width: 40px; height: 40px; background: #ee4d2d; color: #fff;
+  border: none; border-radius: 10px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; flex-shrink: 0; align-self: flex-end;
+}
+.chat-send:disabled { opacity: 0.4; cursor: not-allowed; }
+.quick-btns { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 16px 12px; }
+.quick-btn {
+  background: #fff8f6; border: 1px solid #ffd5cc; border-radius: 20px;
+  padding: 5px 12px; font-size: 11px; color: #ee4d2d; cursor: pointer;
+  font-family: inherit; font-weight: 500; white-space: nowrap;
+}
+.typing { display: flex; gap: 4px; align-items: center; padding: 8px 4px; }
+.typing .dot { width: 6px; height: 6px; border-radius: 50%; background: #aaa; animation: bounce 1.2s ease-in-out infinite; }
+.typing .dot:nth-child(2) { animation-delay: 0.2s; }
+.typing .dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes bounce { 0%,100%{opacity:0.2;transform:scale(0.8)} 50%{opacity:1;transform:scale(1)} }
+
+.card {
+  background: #fff; border-radius: 12px; padding: 16px;
+  margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.card-title {
+  font-size: 13px; font-weight: 700; color: #1a1a18;
+  margin-bottom: 12px; padding-bottom: 10px;
+  border-bottom: 1px solid #f0efe9;
+}
+.tip {
+  background: #fff8f0; border-left: 3px solid #ee4d2d;
+  border-radius: 0 8px 8px 0; padding: 9px 12px;
+  font-size: 12px; color: #666; margin-bottom: 12px; line-height: 1.6;
+}
+.tip strong { color: #ee4d2d; }
+.input-group { margin-bottom: 12px; }
+.input-group label {
+  font-size: 11px; font-weight: 700; color: #999;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  display: block; margin-bottom: 6px;
+}
+textarea, input[type="text"], select {
+  width: 100%; border: 1.5px solid #e8e7e2; border-radius: 8px;
+  padding: 10px 12px; font-size: 14px; color: #1a1a18;
+  background: #fafaf8; font-family: inherit;
+  transition: border-color 0.15s; -webkit-appearance: none;
+}
+textarea { resize: vertical; min-height: 80px; line-height: 1.6; }
+textarea:focus, input:focus, select:focus { outline: none; border-color: #ee4d2d; background: #fff; }
+.btn {
+  width: 100%; padding: 13px; background: #ee4d2d; color: #fff;
+  border: none; border-radius: 10px; font-size: 14px; font-weight: 700;
+  cursor: pointer; font-family: inherit; margin-top: 4px;
+}
+.btn:active { transform: scale(0.98); opacity: 0.9; }
+.result-card {
+  background: #fff8f6; border: 1.5px solid #ffd5cc;
+  border-radius: 12px; padding: 14px; margin-top: 12px;
+  font-size: 13px; color: #1a1a18; line-height: 1.75;
+  white-space: pre-wrap; display: none;
+}
+.result-card.show { display: block; }
+.copy-btn {
+  display: none; width: 100%; margin-top: 8px; padding: 10px;
+  background: transparent; border: 1.5px solid #ee4d2d;
+  border-radius: 8px; color: #ee4d2d; font-size: 13px;
+  font-weight: 700; cursor: pointer; font-family: inherit;
+}
+.copy-btn.show { display: block; }
+.loading {
+  display: none; align-items: center; justify-content: center;
+  gap: 8px; padding: 16px; font-size: 13px; color: #888;
+}
+.loading.show { display: flex; }
+.ldot { width: 7px; height: 7px; border-radius: 50%; background: #ee4d2d; animation: bounce 1.2s ease-in-out infinite; }
+.ldot:nth-child(2) { animation-delay: 0.2s; }
+.ldot:nth-child(3) { animation-delay: 0.4s; }
+.char-count { font-size: 11px; text-align: right; margin-top: 4px; color: #888; display: none; }
+.char-count.show { display: block; }
+.char-count.over { color: #ee4d2d; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <h1>🎬 Agente Roteiros LuGil</h1>
+  <p>Prompts Veo 3 · Roteiros PNL · Legendas · Chat livre</p>
+</div>
+
+<div class="container">
+
+  <div class="setup-card" id="setup-card">
+    <div class="setup-title">🔑 Configure sua chave de acesso</div>
+    <div class="setup-steps">
+      1. Acesse <a href="https://platform.anthropic.com" target="_blank">platform.anthropic.com</a><br>
+      2. Vá em <strong>API Keys → Create Key</strong><br>
+      3. Cole a chave abaixo — você faz isso uma vez só
+    </div>
+    <div class="key-row">
+      <input type="password" class="key-input" id="api-key-input" placeholder="sk-ant-api03-...">
+      <button class="key-btn" onclick="salvarChave()">Salvar</button>
+    </div>
+    <div class="key-status" id="key-status"></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('chat',this)">💬 Chat</button>
+    <button class="tab" onclick="switchTab('roteiro',this)">🎬 Roteiro</button>
+    <button class="tab" onclick="switchTab('pnl',this)">🧠 PNL</button>
+    <button class="tab" onclick="switchTab('veo3',this)">🤖 Veo 3</button>
+    <button class="tab" onclick="switchTab('legenda',this)">✍️ Legenda</button>
+  </div>
+
+  <!-- CHAT -->
+  <div id="tab-chat" class="panel active">
+    <div class="chat-container">
+      <div class="chat-messages" id="chat-messages">
+        <div class="msg bot">
+          <div class="msg-avatar">🎬</div>
+          <div class="msg-bubble">Olá! Sou seu agente de roteiros e conteúdo para Shopee. Posso criar roteiros, prompts Veo 3, legendas e scripts PNL para qualquer produto. O que você precisa?</div>
+        </div>
+      </div>
+      <div class="quick-btns">
+        <button class="quick-btn" onclick="quickSend('Cria um roteiro de 8 segundos para um produto feminino')">Roteiro 8s</button>
+        <button class="quick-btn" onclick="quickSend('Cria um script PNL para parar o scroll e converter')">Script PNL</button>
+        <button class="quick-btn" onclick="quickSend('Gera um prompt Veo 3 para produto feminino')">Prompt Veo 3</button>
+        <button class="quick-btn" onclick="quickSend('Cria legenda e hashtags para produto na Shopee')">Legenda</button>
+        <button class="quick-btn" onclick="quickSend('Qual a melhor abordagem para converter em vendas na Shopee?')">Converter vendas</button>
+      </div>
+      <div class="chat-input-row">
+        <textarea class="chat-input" id="chat-input" placeholder="Digite sua pergunta ou pedido..." rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+        <button class="chat-send" id="chat-send" onclick="enviarMensagem()">➤</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROTEIRO -->
+  <div id="tab-roteiro" class="panel">
+    <div class="card">
+      <div class="card-title">🎬 Gerar roteiro completo</div>
+      <div class="tip"><strong>Fórmula que viralizou:</strong> mulher falando sobre o produto, sem emojis no texto, link aparece na tela do vídeo.</div>
+      <div class="input-group">
+        <label>Produto</label>
+        <input type="text" id="roteiro-produto" placeholder="Ex: Vestido longo plus size chemise em várias cores">
+      </div>
+      <div class="input-group">
+        <label>Duração</label>
+        <select id="roteiro-duracao">
+          <option value="8">8 segundos (viralizou)</option>
+          <option value="16">16 segundos</option>
+          <option value="24">24 segundos</option>
+          <option value="32">32 segundos</option>
+        </select>
+      </div>
+      <div class="input-group">
+        <label>Comissão (opcional)</label>
+        <input type="text" id="roteiro-comissao" placeholder="Ex: 18%">
+      </div>
+      <div class="input-group">
+        <label>Detalhes do produto (opcional)</label>
+        <textarea id="roteiro-detalhes" placeholder="Ex: disponível em 6 cores, tamanhos P ao 5G, tecido leve..." style="min-height:60px"></textarea>
+      </div>
+      <button class="btn" onclick="gerarRoteiro()">Gerar roteiro</button>
+    </div>
+    <div class="loading" id="loading-roteiro"><div class="ldot"></div><div class="ldot"></div><div class="ldot"></div> Criando roteiro...</div>
+    <div class="result-card" id="result-roteiro"></div>
+    <button class="copy-btn" id="copy-roteiro" onclick="copiar('result-roteiro','copy-roteiro')">Copiar roteiro</button>
+  </div>
+
+  <!-- PNL -->
+  <div id="tab-pnl" class="panel">
+    <div class="card">
+      <div class="card-title">🧠 Script PNL — Para o scroll e converte</div>
+      <div class="tip"><strong>O que é PNL:</strong> técnicas de linguagem que ativam gatilhos mentais — urgência, identificação, desejo, confiança — para fazer a pessoa parar, assistir e comprar.</div>
+      <div class="input-group">
+        <label>Produto</label>
+        <input type="text" id="pnl-produto" placeholder="Ex: Vestido longo plus size chemise">
+      </div>
+      <div class="input-group">
+        <label>Público-alvo</label>
+        <input type="text" id="pnl-publico" placeholder="Ex: mulheres plus size que querem se sentir bonitas">
+      </div>
+      <div class="input-group">
+        <label>Principal dor ou desejo do público</label>
+        <input type="text" id="pnl-dor" placeholder="Ex: dificuldade de achar roupa que caia bem no corpo">
+      </div>
+      <div class="input-group">
+        <label>Duração</label>
+        <select id="pnl-duracao">
+          <option value="8">8 segundos</option>
+          <option value="16">16 segundos</option>
+          <option value="24">24 segundos</option>
+          <option value="32">32 segundos</option>
+        </select>
+      </div>
+      <button class="btn" onclick="gerarPNL()">Gerar script PNL</button>
+    </div>
+    <div class="loading" id="loading-pnl"><div class="ldot"></div><div class="ldot"></div><div class="ldot"></div> Criando script PNL...</div>
+    <div class="result-card" id="result-pnl"></div>
+    <button class="copy-btn" id="copy-pnl" onclick="copiar('result-pnl','copy-pnl')">Copiar script PNL</button>
+  </div>
+
+  <!-- VEO 3 -->
+  <div id="tab-veo3" class="panel">
+    <div class="card">
+      <div class="card-title">🤖 Prompt para Veo 3</div>
+      <div class="tip"><strong>Como usar:</strong> Preencha, copie o prompt e cole direto no Veo 3. Gerado no estilo que já funcionou para você.</div>
+      <div class="input-group">
+        <label>Produto</label>
+        <input type="text" id="veo-produto" placeholder="Ex: Vestido longo plus size chemise azul e rosa">
+      </div>
+      <div class="input-group">
+        <label>Estilo</label>
+        <select id="veo-estilo">
+          <option value="plus-size Brazilian woman showing the product and speaking naturally about it, realistic, natural lighting, vertical 9:16">Mulher falando (estilo que viralizou)</option>
+          <option value="product coming to life with smooth movement and color transitions, no person, clean background, vertical 9:16">Só o produto animado</option>
+          <option value="plus-size Brazilian woman wearing and using the product in everyday casual scene, realistic, vertical 9:16">Mulher usando no dia a dia</option>
+          <option value="close up of the product with smooth rotation showing details and colors, elegant lighting, vertical 9:16">Close no produto com rotação</option>
+        </select>
+      </div>
+      <div class="input-group">
+        <label>Duração</label>
+        <select id="veo-duracao">
+          <option value="8 seconds">8 segundos</option>
+          <option value="16 seconds">16 segundos</option>
+          <option value="24 seconds">24 segundos</option>
+          <option value="32 seconds">32 segundos</option>
+        </select>
+      </div>
+      <div class="input-group">
+        <label>Detalhes (cores, tecido, variações...)</label>
+        <textarea id="veo-detalhes" placeholder="Ex: disponível em azul, rosa e preto. Tecido leve. Tamanhos P ao 5G." style="min-height:60px"></textarea>
+      </div>
+      <button class="btn" onclick="gerarVeo3()">Gerar prompt Veo 3</button>
+    </div>
+    <div class="loading" id="loading-veo3"><div class="ldot"></div><div class="ldot"></div><div class="ldot"></div> Criando prompt...</div>
+    <div class="result-card" id="result-veo3"></div>
+    <button class="copy-btn" id="copy-veo3" onclick="copiar('result-veo3','copy-veo3')">Copiar prompt</button>
+  </div>
+
+  <!-- LEGENDA -->
+  <div id="tab-legenda" class="panel">
+    <div class="card">
+      <div class="card-title">✍️ Legenda e hashtags</div>
+      <div class="tip"><strong>Limite:</strong> máximo 150 caracteres. Sem promoção, oferta ou marcas — diretrizes da Shopee.</div>
+      <div class="input-group">
+        <label>Produto</label>
+        <input type="text" id="legenda-produto" placeholder="Ex: Vestido longo plus size chemise">
+      </div>
+      <div class="input-group">
+        <label>Palavras-chave (opcional)</label>
+        <input type="text" id="legenda-palavras" placeholder="Ex: frete grátis, várias cores, P ao 5G">
+      </div>
+      <button class="btn" onclick="gerarLegenda()">Gerar legenda e hashtags</button>
+    </div>
+    <div class="loading" id="loading-legenda"><div class="ldot"></div><div class="ldot"></div><div class="ldot"></div> Gerando...</div>
+    <div class="result-card" id="result-legenda"></div>
+    <div class="char-count" id="char-legenda"></div>
+    <button class="copy-btn" id="copy-legenda" onclick="copiar('result-legenda','copy-legenda')">Copiar legenda</button>
+  </div>
+
+</div>
+
+<script>
+let API_KEY = localStorage.getItem('lugil_roteiros_key') || '';
+let chatHistory = [];
+
+const SYSTEM_CHAT = `Você é especialista em criação de roteiros, scripts PNL e conteúdo para vídeos de afiliadas na Shopee Brasil.
+
+Contexto da afiliada LuGil Indica:
+- Publica somente dentro da Shopee, não usa outras redes sociais
+- Cria vídeos com IA (Veo 3)
+- Formato que viralizou: 8 segundos, mulher falando sobre o produto, mostrando variações
+- Na Shopee o link aparece direto no vídeo — não existe "link na bio"
+- Público: majoritariamente feminino
+- Objetivo: fazer a pessoa parar no vídeo e converter em compra
+
+Sobre roteiros:
+- Crie para durações de 8s, 16s, 24s ou 32s
+- Sempre com HOOK, DESENVOLVIMENTO e CTA
+- Sem emojis no texto falado
+- CTA sempre referencia o link que aparece na tela
+
+Sobre PNL:
+- Use gatilhos de identificação, espelhamento, escassez, prova social, antecipação
+- A pessoa precisa se ver no vídeo e sentir que o produto foi feito para ela
+- Linguagem natural, não parecer script
+
+Responda em português brasileiro direto e prático.`;
+
+if (API_KEY) {
+  document.getElementById('api-key-input').value = API_KEY;
+  document.getElementById('key-status').textContent = '✓ Chave configurada.';
+  document.getElementById('key-status').className = 'key-status ok';
+  document.getElementById('setup-card').style.borderColor = '#c3e6a0';
+}
+
+function salvarChave() {
+  const key = document.getElementById('api-key-input').value.trim();
+  const status = document.getElementById('key-status');
+  if (!key.startsWith('sk-ant-')) {
+    status.textContent = '✗ Chave inválida. Deve começar com sk-ant-';
+    status.className = 'key-status err'; return;
+  }
+  API_KEY = key;
+  localStorage.setItem('lugil_roteiros_key', key);
+  status.textContent = '✓ Chave salva! Agente pronto para uso.';
+  status.className = 'key-status ok';
+  document.getElementById('setup-card').style.borderColor = '#c3e6a0';
+}
+
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+function checkKey() {
+  if (!API_KEY) { alert('Configure sua chave primeiro.'); return false; }
+  return true;
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 100) + 'px';
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviarMensagem(); }
+}
+
+function quickSend(text) {
+  document.getElementById('chat-input').value = text;
+  enviarMensagem();
+}
+
+function addMsg(role, text) {
+  const msgs = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = 'msg ' + (role === 'user' ? 'user' : 'bot');
+  div.innerHTML = `<div class="msg-avatar">${role === 'user' ? '👤' : '🎬'}</div><div class="msg-bubble">${text.replace(/\n/g,'<br>')}</div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function addTyping() {
+  const msgs = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = 'msg bot'; div.id = 'typing-indicator';
+  div.innerHTML = `<div class="msg-avatar">🎬</div><div class="msg-bubble"><div class="typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function removeTyping() {
+  const t = document.getElementById('typing-indicator');
+  if (t) t.remove();
+}
+
+async function enviarMensagem() {
+  if (!checkKey()) return;
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = ''; input.style.height = 'auto';
+  document.getElementById('chat-send').disabled = true;
+  addMsg('user', text);
+  chatHistory.push({ role: 'user', content: text });
+  addTyping();
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": API_KEY,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true"
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 1000,
+        system: SYSTEM_CHAT,
+        messages: chatHistory
+      })
+    });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.error?.message); }
+    const data = await res.json();
+    const reply = data.content.map(i => i.text || '').join('');
+    chatHistory.push({ role: 'assistant', content: reply });
+    removeTyping(); addMsg('bot', reply);
+  } catch(e) { removeTyping(); addMsg('bot', 'Erro: ' + e.message); }
+  document.getElementById('chat-send').disabled = false;
+}
+
+async function callClaude(system, user) {
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": API_KEY,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true"
+    },
+    body: JSON.stringify({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 1000,
+      system, messages: [{ role: "user", content: user }]
+    })
+  });
+  if (!res.ok) { const e = await res.json(); throw new Error(e.error?.message); }
+  const data = await res.json();
+  return data.content.map(i => i.text || '').join('');
+}
+
+function showLoading(id) { document.getElementById('loading-' + id).classList.add('show'); }
+function hideLoading(id) { document.getElementById('loading-' + id).classList.remove('show'); }
+function showResult(id, text) {
+  const el = document.getElementById('result-' + id);
+  el.textContent = text; el.classList.add('show');
+  document.getElementById('copy-' + id).classList.add('show');
+  el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function copiar(rid, bid) {
+  navigator.clipboard.writeText(document.getElementById(rid).textContent).then(() => {
+    const b = document.getElementById(bid); const o = b.textContent;
+    b.textContent = '✓ Copiado!'; setTimeout(() => b.textContent = o, 2000);
+  });
+}
+
+async function gerarRoteiro() {
+  if (!checkKey()) return;
+  const produto = document.getElementById('roteiro-produto').value.trim();
+  if (!produto) { alert('Informe o produto.'); return; }
+  document.getElementById('result-roteiro').classList.remove('show');
+  document.getElementById('copy-roteiro').classList.remove('show');
+  showLoading('roteiro');
+  const dur = document.getElementById('roteiro-duracao').value;
+  try {
+    showResult('roteiro', await callClaude(
+      `Especialista em roteiros para vídeos de afiliadas Shopee Brasil.
+Crie roteiro completo para vídeo de ${dur} segundos com:
+- HOOK (primeiros 2s): frase que para o scroll, sem emoji
+- DESENVOLVIMENTO: o que mostrar e o que falar em cada segundo
+- CTA final: direcionar para o link que aparece na tela do vídeo
+Formato que viralizou: mulher falando sobre o produto, mostrando variações.
+Seja específico segundo a segundo. Português brasileiro natural.`,
+      `Produto: ${produto}\nDuração: ${dur} segundos\nComissão: ${document.getElementById('roteiro-comissao').value || 'não informada'}\nDetalhes: ${document.getElementById('roteiro-detalhes').value || 'não informados'}`
+    ));
+  } catch(e) { showResult('roteiro', 'Erro: ' + e.message); }
+  hideLoading('roteiro');
+}
+
+async function gerarPNL() {
+  if (!checkKey()) return;
+  const produto = document.getElementById('pnl-produto').value.trim();
+  if (!produto) { alert('Informe o produto.'); return; }
+  document.getElementById('result-pnl').classList.remove('show');
+  document.getElementById('copy-pnl').classList.remove('show');
+  showLoading('pnl');
+  const dur = document.getElementById('pnl-duracao').value;
+  try {
+    showResult('pnl', await callClaude(
+      `Especialista em PNL e persuasão para vídeos curtos na Shopee Brasil.
+Crie um script usando técnicas de PNL para um vídeo de ${dur} segundos que:
+1. Para o scroll nos primeiros 2 segundos (gatilho de identificação)
+2. Cria desejo e conexão emocional no meio
+3. Converte em clique no link no final (urgência + facilidade)
+Técnicas a usar: espelhamento, linguagem sensorial, ancoragem, prova social implícita, antecipação.
+O público precisa se sentir que o produto foi feito exatamente para ela.
+Formato: segundo a segundo, com o que mostrar e o que falar.
+Sem emojis no texto falado. Na Shopee o link aparece na tela, não existe bio.
+Português brasileiro natural — não pode parecer script.`,
+      `Produto: ${produto}\nPúblico: ${document.getElementById('pnl-publico').value || 'mulheres brasileiras'}\nDor/desejo: ${document.getElementById('pnl-dor').value || 'não informado'}\nDuração: ${dur} segundos`
+    ));
+  } catch(e) { showResult('pnl', 'Erro: ' + e.message); }
+  hideLoading('pnl');
+}
+
+async function gerarVeo3() {
+  if (!checkKey()) return;
+  const produto = document.getElementById('veo-produto').value.trim();
+  if (!produto) { alert('Informe o produto.'); return; }
+  document.getElementById('result-veo3').classList.remove('show');
+  document.getElementById('copy-veo3').classList.remove('show');
+  showLoading('veo3');
+  try {
+    showResult('veo3', (await callClaude(
+      `Crie prompt em inglês para o Veo 3. Especifique: pessoa (se houver), ação, produto, cores, iluminação natural, formato vertical 9:16, fotorrealista. Retorne APENAS o prompt, sem explicações, máximo 100 palavras.`,
+      `Produto: ${produto}\nEstilo: ${document.getElementById('veo-estilo').value}\nDuração: ${document.getElementById('veo-duracao').value}\nDetalhes: ${document.getElementById('veo-detalhes').value}`
+    )).trim());
+  } catch(e) { showResult('veo3', 'Erro: ' + e.message); }
+  hideLoading('veo3');
+}
+
+async function gerarLegenda() {
+  if (!checkKey()) return;
+  const produto = document.getElementById('legenda-produto').value.trim();
+  if (!produto) { alert('Informe o produto.'); return; }
+  document.getElementById('result-legenda').classList.remove('show');
+  document.getElementById('copy-legenda').classList.remove('show');
+  document.getElementById('char-legenda').classList.remove('show');
+  showLoading('legenda');
+  try {
+    const rawResult = (await callClaude(
+      `Crie legenda com hashtags para vídeo Shopee. REGRAS OBRIGATÓRIAS:
+1. MÁXIMO 100 caracteres no total — conte antes de responder
+2. Use apenas termos que compradores digitam ao BUSCAR para COMPRAR esse produto na Shopee
+3. Sem frases, sem storytelling, sem "transforme", sem "elegância" — só termos de busca
+4. Hashtags curtas e diretas, no máximo 4
+5. Sem promoção, oferta, desconto, preço, marcas
+6. Retorne APENAS a legenda, sem explicações
+Exemplo bom: "Kit poltrona sala decoração #poltronasala #decoracaosala #kitpoltrona #mobilia"
+Exemplo ruim: "Transforme sua sala com elegância e conforto #PoltronasDiversas #MóvelIndústrial"`,
+      `Produto: ${produto}\nPalavras-chave: ${document.getElementById('legenda-palavras').value}`
+    )).trim();
+    const result = rawResult.slice(0, 150);
+    showResult('legenda', result);
+    const count = result.length;
+    const charEl = document.getElementById('char-legenda');
+    charEl.textContent = `${count}/150 caracteres`;
+    charEl.className = 'char-count show';
+  } catch(e) { showResult('legenda', 'Erro: ' + e.message); }
+  hideLoading('legenda');
+}
+</script>
+</body>
+</html>
