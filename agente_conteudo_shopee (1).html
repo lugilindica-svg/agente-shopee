@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agente Conteúdo Shopee</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #f5f4f0; color: #1a1a18;
+  min-height: 100vh; padding: 0 0 60px;
+}
+.top-bar {
+  background: #ee4d2d; padding: 12px 16px;
+  position: sticky; top: 0; z-index: 20;
+  box-shadow: 0 2px 8px rgba(238,77,45,0.3);
+}
+.top-bar h1 { color: #fff; font-size: 16px; font-weight: 700; }
+.top-bar p { color: rgba(255,255,255,0.8); font-size: 11px; margin-top: 1px; }
+.container { max-width: 600px; margin: 0 auto; padding: 0 16px; }
+
+.setup-card {
+  background: #fff; border-radius: 12px; padding: 14px;
+  margin: 14px 0 0; border: 1.5px solid #ffd5cc;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.setup-title { font-size: 13px; font-weight: 700; color: #ee4d2d; margin-bottom: 6px; }
+.setup-steps { font-size: 12px; color: #555; line-height: 1.7; margin-bottom: 10px; }
+.setup-steps a { color: #ee4d2d; font-weight: 600; }
+.key-row { display: flex; gap: 8px; }
+.key-input {
+  flex: 1; border: 1.5px solid #e8e7e2; border-radius: 8px;
+  padding: 9px 12px; font-size: 12px; color: #1a1a18;
+  background: #fafaf8; font-family: monospace;
+}
+.key-input:focus { outline: none; border-color: #ee4d2d; }
+.key-btn {
+  padding: 9px 16px; background: #ee4d2d; color: #fff;
+  border: none; border-radius: 8px; font-size: 13px;
+  font-weight: 700; cursor: pointer; font-family: inherit;
+}
+.key-status { font-size: 11px; margin-top: 6px; display: none; }
+.key-status.ok { color: #3B6D11; display: block; }
+.key-status.err { color: #A32D2D; display: block; }
+
+.tabs {
+  display: flex; margin: 14px 0 0; overflow-x: auto;
+  scrollbar-width: none; background: #fff;
+  border-radius: 12px; padding: 4px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08); gap: 2px;
+}
+.tabs::-webkit-scrollbar { display: none; }
+.tab {
+  flex: 0 0 auto; padding: 7px 10px; font-size: 11px; font-weight: 600;
+  border-radius: 8px; cursor: pointer; border: none;
+  background: transparent; color: #888; white-space: nowrap;
+  font-family: inherit; transition: all 0.15s;
+}
+.tab.active { background: #ee4d2d; color: #fff; }
+
+.panel { display: none; margin-top: 14px; }
+.panel.active { display: block; }
+
+/* CHAT */
+.chat-container {
+  background: #fff; border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  display: flex; flex-direction: column; height: 500px; overflow: hidden;
+}
+.chat-messages {
+  flex: 1; overflow-y: auto; padding: 16px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.msg { display: flex; gap: 8px; align-items: flex-start; }
+.msg.user { flex-direction: row-reverse; }
+.msg-avatar {
+  width: 28px; height: 28px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; flex-shrink: 0; margin-top: 2px;
+}
+.msg.bot .msg-avatar { background: #ee4d2d; color: #fff; }
+.msg.user .msg-avatar { background: #f0efe9; color: #666; }
+.msg-bubble {
+  max-width: 82%; padding: 10px 13px; border-radius: 12px;
+  font-size: 13px; line-height: 1.6; white-space: pre-wrap;
+}
+.msg.bot .msg-bubble { background: #f5f4f0; color: #1a1a18; border-radius: 2px 12px 12px 12px; }
+.msg.user .msg-bubble { background: #ee4d2d; color: #fff; border-radius: 12px 2px 12px 12px; }
+.chat-input-row {
+  display: flex; gap: 8px; padding: 12px;
+  border-top: 1px solid #f0efe9;
+}
+.chat-input {
+  flex: 1; border: 1.5px solid #e8e7e2; border-radius: 10px;
+  padding: 10px 12px; font-size: 14px; color: #1a1a18;
+  background: #fafaf8; font-family: inherit; resize: none; max-height: 100px;
+}
+.chat-input:focus { outline: none; border-color: #ee4d2d; }
+.chat-send {
+  width: 40px; height: 40px; background: #ee4d2d; color: #fff;
+  border: none; border-radius: 10px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; flex-shrink: 0; align-self: flex-end;
+}
+.chat-send:disabled { opacity: 0.4; cursor: not-allowed; }
+.quick-btns { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 16px 12px; }
+.quick-btn {
+  background: #fff8f6; border: 1px solid #ffd5cc; border-radius: 20px;
+  padding: 5px 12px; font-size: 11px; color: #ee4d2d; cursor: pointer;
+  font-family: inherit; font-weight: 500; white-space: nowrap;
+}
+.typing { display: flex; gap: 4px; align-items: center; padding: 8px 4px; }
+.typing .dot { width: 6px; height: 6px; border-radius: 50%; background: #aaa; animation: bounce 1.2s ease-in-out infinite; }
+.typing .dot:nth-child(2) { animation-delay: 0.2s; }
+.typing .dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes bounce { 0%,100%{opacity:0.2;transform:scale(0.8)} 50%{opacity:1;transform:scale(1)} }
+
+/* CARDS */
+.card {
+  background: #fff; border-radius: 12px; padding: 16px;
+  margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.card-title {
+  font-size: 13px; font-weight: 700; color: #1a1a18;
+  margin-bottom: 12px; padding-bottom: 10px;
+  border-bottom: 1px solid #f0efe9;
+}
+.tip {
+  background: #fff8f0; border-left: 3px solid #ee4d2d;
+  border-radius: 0 8px 8px 0; padding: 9px 12px;
+  font-size: 12px; color: #666; margin-bottom: 12px; line-height: 1.6;
+}
+.tip strong { color: #ee4d2d; }
+.input-group { margin-bottom: 12px; }
+.input-group label {
+  font-size: 11px; font-weight: 700; color: #999;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  display: block; margin-bottom: 6px;
+}
+textarea, input[type="text"], select {
+  width: 100%; border: 1.5px solid #e8e7e2; border-radius: 8px;
+  padding: 10px 12px; font-size: 14px; color: #1a1a18;
+  background: #fafaf8; font-family: inherit;
+  transition: border-color 0.15s; -webkit-appearance: none;
+}
+textarea { resize: vertical; min-height: 80px; line-height: 1.6; }
+textarea:focus, input:focus, select:focus { outline: none; border-color: #ee4d2d; background: #fff; }
+.btn {
+  width: 100%; padding: 13px; background: #ee4d2d; color: #fff;
+  border: none; border-radius: 10px; font-size: 14px; font-weight: 700;
+  cursor: pointer; font-family: inherit; margin-top: 4px;
+}
+.btn:active { transform: scale(0.98); opacity: 0.9; }
+.result-card {
+  background: #fff8f6; border: 1.5px solid #ffd5cc;
+  border-radius: 12px; padding: 14px; margin-top: 12px;
+  font-size: 13px; color: #1a1a18; line-height: 1.75;
+  white-space: pre-wrap; display: none;
+}
+.result-card.show { display: block; }
+.copy-btn {
+  display: none; width: 100%; margin-top: 8px; padding: 10px;
+  background: transparent; border: 1.5px solid #ee4d2d;
+  border-radius: 8px; color: #ee4d2d; font-size: 13px;
+  font-weight: 700; cursor: pointer; font-family: inherit;
+}
+.copy-btn.show { display: block; }
+.loading {
+  display: none; align-items: center; justify-content: center;
+  gap: 8px; padding: 16px; font-size: 13px; color: #888;
+}
+.loading.show { display: flex; }
+.ldot { width: 7px; height: 7px; border-radius: 50%; background: #ee4d2d; animation: bounce 1.2s ease-in-out infinite; }
+.ldot:nth-child(2) { animation-delay: 0.2s; }
+.ldot:nth-child(3) { animation-delay: 0.4s; }
+.char-count { font-size: 11px; text-align: right; margin-top: 4px; color: #888; display: none; }
+.char-count.show { display: block; }
+.char-count.over { color: #ee4d2d; font-weight: 700; }
+.badge-ok { display: inline-block; background: #EAF3DE; color: #3B6D11; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; margin-right: 6px; }
+.badge-warn { display: inline-block; background: #FAEEDA; color: #854F0B; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; margin-right: 6px; }
+.badge-err { display: inline-block; background: #FCEBEB; color: #A32D2D; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; margin-right: 6px; }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <h1>🎯 Agente Conteúdo Shopee</h1>
+  <p>Roteiros · PNL · SEO · Hook · CTA · Conformidade</p>
+</div>
+
+<div class="container">
+
+  <div class="setup-card" id="setup-card">
+    <div class="setup-title">🔑 Configure sua chave de acesso</div>
+    <div class="setup-steps">
+      1. Acesse <a href="https://platform.anthropic.com" target="_blank">platform.anthropic.com</a><br>
+      2. Vá em <strong>API Keys → Create Key</strong><br>
+      3. Cole a chave abaixo — você faz isso uma vez só
+    </div>
+    <div class="key-row">
+      <input type="password" class="key-input" id="api-key-input" placeholder="sk-ant-api03-...">
+      <button class="key-btn" onclick="salvarChave()">Salvar</button>
+    </div>
+    <div class="key-status" id="key-status"></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('chat',this)">💬 Chat</button>
+    <button class="tab" onclick="switchTab('hook',this)">🎣 Hook</button>
+    <button class="tab" onclick="switchTab('roteiro',this)">🎬 Roteiro</button>
+    <button class="tab" onclick="switchTab('pnl',this)">🧠 PNL</button>
+    <button class="tab" onclick="switchTab('seo',this)">🔍 SEO</button>
+    <button class="tab" onclick="switchTab('verificar',this)">✅ Verificar</button>
+  </div>
+
+  <!-- CHAT -->
+  <div id="tab-chat" class="panel active">
+    <div class="chat-container">
+      <div class="chat-messages" id="chat-messages">
+        <div class="msg bot">
+          <div class="msg-avatar">🎯</div>
+          <div class="msg-bubble">Olá! Sou seu agente de conteúdo para Shopee, treinado nas diretrizes oficiais da plataforma. Crio roteiros, hooks, scripts PNL, legendas SEO e verifico conformidade. Tudo focado em converter dentro da Shopee. O que você precisa?</div>
+        </div>
+      </div>
+      <div class="quick-btns">
+        <button class="quick-btn" onclick="quickSend('O que não posso falar no vídeo segundo as diretrizes da Shopee?')">O que não posso falar?</button>
+        <button class="quick-btn" onclick="quickSend('Como fazer um hook que para o scroll sem violar diretrizes?')">Hook sem violar regras</button>
+        <button class="quick-btn" onclick="quickSend('Posso mencionar preço ou desconto no vídeo?')">Posso mencionar preço?</button>
+        <button class="quick-btn" onclick="quickSend('Como fazer CTA dentro das regras da Shopee?')">CTA dentro das regras</button>
+        <button class="quick-btn" onclick="quickSend('O que é produto irrelevante segundo a Shopee e como evitar?')">Produto irrelevante</button>
+      </div>
+      <div class="chat-input-row">
+        <textarea class="chat-input" id="chat-input" placeholder="Pergunte sobre diretrizes, estratégia ou peça conteúdo..." rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+        <button class="chat-send" id="chat-send" onclick="enviarMensagem()">➤</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- HOOK -->
+  <div id="tab-hook" class="panel">
+    <div class="card">
+      <div class="card-title">🎣 Gerar Hook — Para o scroll nos primeiros segundos</div>
+      <div class="tip"><strong>O hook é tudo.</strong> Nos primeiros 2 segundos a pessoa decide se fica ou vai embora. Este agente cria hooks que prendem sem violar as diretrizes da Shopee — sem promessas falsas, sem clickbait proibido.</div>
+      <div class="input-group">
+        <label>Produto</label>
+        <input type="text" id="hook-produto" placeholder="Ex: Vestido longo plus size chemise em 6 cores">
+      </div>
+      <div class="input-group">
+        <label>Principal benefício do produto</label>
+        <input type="text" id="hook-beneficio" placeholder="Ex: caimento perfeito em todos os tipos de corpo">
+      </div>
+      <div class="input-group">
+        <label>Público-alvo</label>
+        <input type="text" id="hook-publico" placeholder="Ex: mulheres plus size que querem se sentir bonitas">
+      </div>
+      <div class="input-group">
+        <label>Estilo do hook</label>
+        <select id="hook-estilo">
+          <option value="pergunta que gera identificação">Pergunta de identificação</option>
+          <option value="afirmação surpreendente sobre o produto">Afirmação surpreendente</option>
+          <option value="dor do público resolvida pelo produto">Dor resolvida</option>
+          <option value="curiosidade sobre o produto">Curiosidade</option>
+          <option value="prova social implícita">Prova social</option>
+        </select>
+      </div>
+      <div class="input-group">
+        <label>Quantidade de opções</label>
+        <select id="hook-qtd">
+          <option value="3">3 opções</option>
+          <option value="5">5 opções</option>
+        </select>
+      </div>
+      <button class="btn" onclick="gerarHook()">Gerar hooks</button>
+    </div>
+    <div class="loading" id="loading-hook"><div class="ldot"></div><div class="ldot"></div><div class="ldot"></div> Criando hooks...</div>
+    <div class="result-card" id="result-hook"></div>
+    <button class="copy-btn" id="copy-hook" onclick="copiar('result-hook','copy-hook')">Copiar hooks</button>
+  </div>
+
+  <!-- ROTEIRO -->
+  <div id="tab-roteiro" class="panel">
+    <div class="card">
+      <div class="card-title">🎬 Roteiro Completo — Hook + Desenvolvimento + CTA</div>
+      <div class="tip"><strong>100% dentro das diretrizes Shopee.</strong> Sem menção a preço, desconto, promoção ou marcas concorrentes. CTA direcionando para o link que aparece na tela do vídeo.</div>
+      <div class="input-group">
+        <label>Produto</label>
+        <input type="text" id="rot-produto" placeholder="Ex: Vestido longo plus size chemise">
+      </div>
+      <div class="input-group">
+        <label>Detalhes do produto</label>
+        <textarea id="rot-detalhes" placeholder="Ex: disponível em 6 cores, tamanhos P ao 5G, tecido leve, botões frontais, colarinho chemise..." style="min-height:70px"></textarea>
+      </div>
+      <div class="input-group">
+        <label>Público e dor principal</label>
+        <input type="text" id="rot-publico" placeholder="Ex: mulheres plus size que têm dificuldade de achar roupa que caia bem">
+      </div>
+      <div class="input-group">
+        <label>Duração total</label>
+        <select id="rot-duracao">
+          <option value="8">8 segundos</option>
+          <option value="16">16 segundos</option>
+          <option value="24" selected>24 segundos</option>
+          <option value="32">32 segundos</option>
+        </select>
+      </div>
+      <div class="input-group">
+        <label>Quem aparece no vídeo</label>
+        <select id="rot-pessoa">
+          <option value="mulher plus size falando naturalmente sobre o produto">Mulher plus size falando</option>
+          <option value="mão feminina apresentando o produto">Mão feminina</option>
+          <option value="produto sendo mostrado com narração em off">Narração em off</option>
+        </select>
+      </div>
+      <button class="btn" onclick="gerarRoteiro()">Gerar roteiro</button>
+    </div>
+    <div class="loading" id="loading-rot"><div class="ldot"></div><div class="ldot"></div><div class="ldot"></div> Criando roteiro...</div>
+    <div class="result-card" id="result-rot"></div>
+    <button class="copy-btn" id="copy-rot" onclick="copiar('result-rot','copy-rot')">Copiar roteiro</button>
+  </div>
+
+  <!-- PNL -->
+  <div id="tab-pnl" class="panel">
+    <div class="card">
+      <div class="card-title">🧠 Roteiro PNL — Gatilhos mentais que convertem</div>
+      <div class="tip"><strong>PNL aplicada à Shopee.</strong> Usa identificação, espelhamento, antecipação, escassez e prova social — tudo sem violar diretrizes. A pessoa se vê no vídeo e sente que o produto foi feito pra ela.</div>
+      <div class="input-group">
+        <label>Produto</label>
+        <input type="text" id="pnl-produto" placeholder="Ex: Vestido longo plus size chemise">
+      </div>
+      <div class="input-group">
+        <label>Maior dor ou desejo do público</label>
+        <input type="text" id="pnl-dor" placeholder="Ex: dificuldade de achar roupa que valorize o corpo plus size">
+      </div>
+      <div class="input-group">
+        <label>Como o produto resolve essa dor</label>
+        <input type="text" id="pnl-solucao" placeholder="Ex: caimento perfeito, tecido leve, disponível em vários tamanhos">
+      </div>
+      <div class="input-group">
+        <label>Gatilhos prioritários</label>
+        <select id="pnl-gatilho">
+          <option value="identificação + espelhamento">Identificação + Espelhamento</option>
+          <option value="escassez + urgência">Escassez + Urgência</option>
+          <option value="prova social + autoridade">Prova Social + Autoridade</option>
+          <option value="antecipação + curiosidade">Antecipação + Curiosidade</option>
+          <option value="todos os gatilhos equilibrados">Todos equilibrados</option>
+        </select>
+      </div>
+      <div class="input-group">
+        <label>Duração</label>
+        <select id="pnl-duracao">
+          <option value="8">8 segundos</option>
+          <option value="16">16 segundos</option>
+          <option value="24" selected>24 segundos</option>
+          <option value="32">32 segundos</option>
+        </select>
+      </div>
+      <button class="btn" onclick="gerarPNL()">Gerar roteiro PNL</button>
+    </div>
+    <div class="loading" id="loading-pnl"><div class="ldot"></div><div class="ldot"></div><div class="ldot"></div> Criando script PNL...</div>
+    <div class="result-card" id="result-pnl"></div>
+    <button class="copy-btn" id="copy-pnl" onclick="copiar('result-pnl','copy-pnl')">Copiar PNL</button>
+  </div>
+
+  <!-- SEO -->
+  <div id="tab-seo" class="panel">
+    <div class="card">
+      <div class="card-title">🔍 Legenda e Hashtags SEO</div>
+      <div class="tip"><strong>Foco em intenção de compra.</strong> Só termos que comprador digita na Shopee quando quer comprar. Sem frases genéricas, sem storytelling, sem promoção. Máximo 150 caracteres.</div>
+      <div class="input-group">
+        <label>Produto</label>
+        <input type="text" id="seo-produto" placeholder="Ex: Vestido longo plus size chemise">
+      </div>
+      <div class="input-group">
+        <label>Categoria do produto</label>
+        <input type="text" id="seo-categoria" placeholder="Ex: moda feminina, casa e decoração, beleza...">
+      </div>
+      <div class="input-group">
+        <label>Características principais</label>
+        <input type="text" id="seo-caract" placeholder="Ex: longo, plus size, várias cores, P ao 5G, frete grátis">
+      </div>
+      <button class="btn" onclick="gerarSEO()">Gerar legenda SEO</button>
+    </div>
+    <div class="loading" id="loading-seo"><div class="ldot"></div><div class="ldot"></div><div class="ldot"></div> Gerando SEO...</div>
+    <div class="result-card" id="result-seo"></div>
+    <div class="char-count" id="char-seo"></div>
+    <button class="copy-btn" id="copy-seo" onclick="copiar('result-seo','copy-seo')">Copiar legenda SEO</button>
+  </div>
+
+  <!-- VERIFICAR -->
+  <div id="tab-verificar" class="panel">
+    <div class="card">
+      <div class="card-title">✅ Verificar conformidade com diretrizes Shopee</div>
+      <div class="tip"><strong>Cole seu roteiro ou legenda</strong> antes de postar e o agente verifica se há risco de punição segundo as diretrizes oficiais da Shopee Video.</div>
+      <div class="input-group">
+        <label>Cole seu conteúdo aqui</label>
+        <textarea id="ver-conteudo" placeholder="Cole aqui seu roteiro, legenda, narração ou texto do vídeo para verificar..." style="min-height:120px"></textarea>
+      </div>
+      <div class="input-group">
+        <label>Tipo de conteúdo</label>
+        <select id="ver-tipo">
+          <option value="roteiro de vídeo com narração">Roteiro de vídeo</option>
+          <option value="legenda e hashtags">Legenda e hashtags</option>
+          <option value="comentário no vídeo">Comentário no vídeo</option>
+          <option value="texto sobreposto no vídeo">Texto sobreposto no vídeo</option>
+        </select>
+      </div>
+      <button class="btn" onclick="verificarConteudo()">Verificar conformidade</button>
+    </div>
+    <div class="loading" id="loading-ver"><div class="ldot"></div><div class="ldot"></div><div class="ldot"></div> Verificando...</div>
+    <div class="result-card" id="result-ver"></div>
+    <button class="copy-btn" id="copy-ver" onclick="copiar('result-ver','copy-ver')">Copiar resultado</button>
+  </div>
+
+</div>
+
+<script>
+let API_KEY = localStorage.getItem('lugil_conteudo_key') || '';
+let chatHistory = [];
+
+const DIRETRIZES = `Você conhece profundamente as Diretrizes da Comunidade Shopee Video. Os pontos mais importantes para afiliadas:
+
+PROIBIDO mencionar:
+- Preços, valores, descontos, promoções, ofertas, cupons (exceto cupons disponíveis no próprio anúncio mencionados de forma neutra)
+- Nomes de marcas concorrentes ou outras plataformas (TikTok, Instagram, YouTube etc.)
+- Promessas milagrosas ou resultados garantidos
+- Frases como "melhor preço", "mais barato", "imperdível" como argumento de venda
+- Conteúdo sexual, sugestivo ou postura inadequada
+- Informações falsas sobre o produto
+- Links externos fora da Shopee
+- Engajamento artificial ou pedido de compartilhamento artificial
+
+OBRIGATÓRIO respeitar:
+- O vídeo deve mostrar EXATAMENTE o produto do anúncio vinculado (sem produto irrelevante)
+- CTA deve direcionar para o link que aparece na tela — na Shopee não existe "link na bio"
+- Conteúdo deve ser original ou com transformação significativa
+- Qualidade mínima de vídeo — sem slides de imagem estática de baixa qualidade
+- Sem marcas d'água de outras plataformas
+
+PERMITIDO e que CONVERTE:
+- Mostrar o produto em uso real ou simulado
+- Destacar características, benefícios e diferenciais reais
+- Usar gatilhos emocionais de identificação, desejo e solução de problema
+- Mencionar variações, cores, tamanhos disponíveis
+- CTA neutro como "clica no link aqui embaixo" ou "garante o seu"
+- Narração natural e autêntica`;
+
+const SYSTEM_CHAT = `Você é especialista em criação de conteúdo para afiliadas na Shopee Brasil, com domínio total das Diretrizes da Comunidade Shopee Video.
+
+${DIRETRIZES}
+
+Contexto da afiliada LuGil Indica:
+- Cria vídeos com IA (Veo 3), formato que viralizou: 8 segundos, mulher falando sobre o produto
+- Publica somente dentro da Shopee, sem outras redes
+- Público: majoritariamente feminino
+- Problema de entrega: vídeos concentrados geograficamente
+
+Ao criar qualquer conteúdo:
+1. Sempre respeite as diretrizes acima
+2. Foque em conversão real — não em contar história
+3. Use linguagem natural, não parecer script
+4. CTA sempre referencia o link que aparece na tela do vídeo
+
+Responda em português brasileiro direto e prático.`;
+
+if (API_KEY) {
+  document.getElementById('api-key-input').value = API_KEY;
+  document.getElementById('key-status').textContent = '✓ Chave configurada.';
+  document.getElementById('key-status').className = 'key-status ok';
+  document.getElementById('setup-card').style.borderColor = '#c3e6a0';
+}
+
+function salvarChave() {
+  const key = document.getElementById('api-key-input').value.trim();
+  const status = document.getElementById('key-status');
+  if (!key.startsWith('sk-ant-')) {
+    status.textContent = '✗ Chave inválida. Deve começar com sk-ant-';
+    status.className = 'key-status err'; return;
+  }
+  API_KEY = key;
+  localStorage.setItem('lugil_conteudo_key', key);
+  status.textContent = '✓ Chave salva! Agente pronto para uso.';
+  status.className = 'key-status ok';
+  document.getElementById('setup-card').style.borderColor = '#c3e6a0';
+}
+
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+function checkKey() {
+  if (!API_KEY) { alert('Configure sua chave primeiro.'); return false; }
+  return true;
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 100) + 'px';
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviarMensagem(); }
+}
+
+function quickSend(text) {
+  document.getElementById('chat-input').value = text;
+  enviarMensagem();
+}
+
+function addMsg(role, text) {
+  const msgs = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = 'msg ' + (role === 'user' ? 'user' : 'bot');
+  div.innerHTML = `<div class="msg-avatar">${role === 'user' ? '👤' : '🎯'}</div><div class="msg-bubble">${text.replace(/\n/g,'<br>')}</div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function addTyping() {
+  const msgs = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = 'msg bot'; div.id = 'typing-indicator';
+  div.innerHTML = `<div class="msg-avatar">🎯</div><div class="msg-bubble"><div class="typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function removeTyping() {
+  const t = document.getElementById('typing-indicator');
+  if (t) t.remove();
+}
+
+async function enviarMensagem() {
+  if (!checkKey()) return;
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = ''; input.style.height = 'auto';
+  document.getElementById('chat-send').disabled = true;
+  addMsg('user', text);
+  chatHistory.push({ role: 'user', content: text });
+  addTyping();
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": API_KEY,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true"
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 1200,
+        system: SYSTEM_CHAT,
+        messages: chatHistory
+      })
+    });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.error?.message); }
+    const data = await res.json();
+    const reply = data.content.map(i => i.text || '').join('');
+    chatHistory.push({ role: 'assistant', content: reply });
+    removeTyping(); addMsg('bot', reply);
+  } catch(e) { removeTyping(); addMsg('bot', 'Erro: ' + e.message); }
+  document.getElementById('chat-send').disabled = false;
+}
+
+async function callClaude(system, user) {
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": API_KEY,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true"
+    },
+    body: JSON.stringify({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 1200,
+      system, messages: [{ role: "user", content: user }]
+    })
+  });
+  if (!res.ok) { const e = await res.json(); throw new Error(e.error?.message); }
+  const data = await res.json();
+  return data.content.map(i => i.text || '').join('');
+}
+
+function showLoading(id) { document.getElementById('loading-' + id).classList.add('show'); }
+function hideLoading(id) { document.getElementById('loading-' + id).classList.remove('show'); }
+function showResult(id, text) {
+  const el = document.getElementById('result-' + id);
+  el.textContent = text; el.classList.add('show');
+  document.getElementById('copy-' + id).classList.add('show');
+  el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function copiar(rid, bid) {
+  navigator.clipboard.writeText(document.getElementById(rid).textContent).then(() => {
+    const b = document.getElementById(bid); const o = b.textContent;
+    b.textContent = '✓ Copiado!'; setTimeout(() => b.textContent = o, 2000);
+  });
+}
+
+async function gerarHook() {
+  if (!checkKey()) return;
+  const produto = document.getElementById('hook-produto').value.trim();
+  if (!produto) { alert('Informe o produto.'); return; }
+  document.getElementById('result-hook').classList.remove('show');
+  document.getElementById('copy-hook').classList.remove('show');
+  showLoading('hook');
+  try {
+    showResult('hook', await callClaude(
+      `${DIRETRIZES}
+
+Você é especialista em hooks para vídeos de afiliadas na Shopee Brasil.
+Crie hooks poderosos para os primeiros 2 segundos do vídeo que:
+1. Param o scroll imediatamente
+2. Criam identificação ou curiosidade instantânea
+3. NÃO mencionam preço, promoção, desconto ou marcas
+4. NÃO são clickbait proibido — devem ser verdadeiros sobre o produto
+5. São naturais, como alguém falando de verdade
+6. Máximo 15 palavras cada
+
+Formato de resposta:
+HOOK 1: [texto]
+Por que funciona: [explicação curta]
+
+HOOK 2: [texto]
+Por que funciona: [explicação curta]
+
+(continue para todas as opções)`,
+      `Produto: ${produto}
+Benefício principal: ${document.getElementById('hook-beneficio').value}
+Público: ${document.getElementById('hook-publico').value}
+Estilo: ${document.getElementById('hook-estilo').value}
+Quantidade: ${document.getElementById('hook-qtd').value} opções`
+    ));
+  } catch(e) { showResult('hook', 'Erro: ' + e.message); }
+  hideLoading('hook');
+}
+
+async function gerarRoteiro() {
+  if (!checkKey()) return;
+  const produto = document.getElementById('rot-produto').value.trim();
+  if (!produto) { alert('Informe o produto.'); return; }
+  document.getElementById('result-rot').classList.remove('show');
+  document.getElementById('copy-rot').classList.remove('show');
+  showLoading('rot');
+  const dur = document.getElementById('rot-duracao').value;
+  try {
+    showResult('rot', await callClaude(
+      `${DIRETRIZES}
+
+Você é especialista em roteiros para afiliadas Shopee Brasil.
+Crie roteiro completo dividido em BLOCOS FIXOS DE 8 SEGUNDOS CADA.
+
+ESTRUTURA OBRIGATÓRIA — BLOCOS DE 8 SEGUNDOS:
+
+CENA 1 — HOOK (0 a 8s)
+O que mostrar: [descreva a cena visual]
+Narração: [máximo 20 palavras — precisa caber em 8 segundos]
+
+CENA 2 — DESENVOLVIMENTO (8 a 16s)
+O que mostrar: [descreva a cena visual]
+Narração: [máximo 20 palavras — precisa caber em 8 segundos]
+
+CENA 3 — CTA (16 a 24s)  
+O que mostrar: [descreva a cena visual com o link aparecendo na tela]
+Narração: [máximo 15 palavras — precisa caber em 8 segundos]
+
+Para 8 segundos: use apenas CENA 1 com hook e CTA junto (máximo 20 palavras).
+Para 16 segundos: use CENA 1 e CENA 2.
+Para 32 segundos: use 4 blocos de 8s — HOOK, DESENVOLVIMENTO 1, DESENVOLVIMENTO 2, CTA.
+
+REGRAS ABSOLUTAS:
+- NUNCA dividir em trechos menores que 8 segundos
+- Narração de cada bloco: máximo 20 palavras (cabe em 8s falando naturalmente)
+- Sem preço, desconto, promoção, cupom, oferta
+- Sem nomes de outras plataformas ou marcas concorrentes
+- CTA SEMPRE: "clica no link aqui embaixo" — NUNCA "link na bio"
+- Narração natural, não parecer script`,
+      `Produto: ${produto}
+Detalhes: ${document.getElementById('rot-detalhes').value}
+Público e dor: ${document.getElementById('rot-publico').value}
+Duração: ${dur} segundos — dividir em blocos de 8 segundos cada
+Quem aparece: ${document.getElementById('rot-pessoa').value}`
+    ));
+  } catch(e) { showResult('rot', 'Erro: ' + e.message); }
+  hideLoading('rot');
+}
+
+async function gerarPNL() {
+  if (!checkKey()) return;
+  const produto = document.getElementById('pnl-produto').value.trim();
+  if (!produto) { alert('Informe o produto.'); return; }
+  document.getElementById('result-pnl').classList.remove('show');
+  document.getElementById('copy-pnl').classList.remove('show');
+  showLoading('pnl');
+  const dur = document.getElementById('pnl-duracao').value;
+  try {
+    showResult('pnl', await callClaude(
+      `${DIRETRIZES}
+
+Você é especialista em PNL e persuasão aplicada a vídeos de afiliadas na Shopee Brasil.
+Crie roteiro com técnicas de PNL para ${dur} segundos que:
+
+TÉCNICAS A USAR (${document.getElementById('pnl-gatilho').value}):
+- Identificação: a pessoa se vê no vídeo ("você que...")
+- Espelhamento: refletir a dor e depois a solução
+- Antecipação: criar desejo antes de mostrar o produto
+- Escassez implícita: sem prometer escassez falsa, mas criando senso de oportunidade
+- Prova social implícita: sem números falsos
+
+ESTRUTURA OBRIGATÓRIA — BLOCOS FIXOS DE 8 SEGUNDOS:
+
+CENA 1 — HOOK PNL (0 a 8s)
+O que mostrar: [cena visual]
+Narração: [máximo 20 palavras com gatilho de identificação]
+
+CENA 2 — DESENVOLVIMENTO PNL (8 a 16s)
+O que mostrar: [cena visual mostrando o produto]
+Narração: [máximo 20 palavras com gatilho de desejo/solução]
+
+CENA 3 — CTA PNL (16 a 24s)
+O que mostrar: [cena visual com link aparecendo na tela]
+Narração: [máximo 15 palavras com gatilho de ação]
+
+NUNCA dividir em trechos menores que 8 segundos.
+Narração máxima por bloco: 20 palavras (cabe em 8s falando naturalmente).
+
+REGRAS ABSOLUTAS:
+- Sem preço, desconto, promoção
+- Sem promessas falsas ou resultados garantidos
+- Sem clickbait proibido
+- Linguagem natural — não pode parecer script de vendas`,
+      `Produto: ${produto}
+Dor do público: ${document.getElementById('pnl-dor').value}
+Como o produto resolve: ${document.getElementById('pnl-solucao').value}
+Gatilhos: ${document.getElementById('pnl-gatilho').value}
+Duração: ${dur} segundos`
+    ));
+  } catch(e) { showResult('pnl', 'Erro: ' + e.message); }
+  hideLoading('pnl');
+}
+
+async function gerarSEO() {
+  if (!checkKey()) return;
+  const produto = document.getElementById('seo-produto').value.trim();
+  if (!produto) { alert('Informe o produto.'); return; }
+  document.getElementById('result-seo').classList.remove('show');
+  document.getElementById('copy-seo').classList.remove('show');
+  document.getElementById('char-seo').classList.remove('show');
+  showLoading('seo');
+  try {
+    const raw = (await callClaude(
+      `Crie legenda com hashtags para vídeo Shopee focada em SEO e intenção de compra.
+
+REGRAS ABSOLUTAS:
+1. MÁXIMO 120 caracteres no total (legenda + hashtags juntos) — conte antes de escrever
+2. Use APENAS termos que compradores digitam na busca da Shopee quando querem COMPRAR
+3. Sem frases, sem storytelling, sem adjetivos genéricos
+4. Hashtags: máximo 4, curtas, específicas — termos de busca reais
+5. Sem promoção, oferta, desconto, preço, marcas concorrentes
+6. Retorne APENAS a legenda pronta, sem explicações, sem aspas, sem comentários
+
+EXEMPLO BOM: "Vestido longo plus size chemise caimento perfeito #vestidoplussize #modafeminina #vestidolongo #plussize"
+EXEMPLO RUIM: "Transforme seu visual com elegância e estilo! #modas #looks #tendencia #shopee"`,
+      `Produto: ${produto}
+Categoria: ${document.getElementById('seo-categoria').value}
+Características: ${document.getElementById('seo-caract').value}`
+    )).trim();
+    const result = raw.slice(0, 150);
+    showResult('seo', result);
+    const count = result.length;
+    const charEl = document.getElementById('char-seo');
+    charEl.textContent = `${count}/150 caracteres`;
+    charEl.className = 'char-count show';
+  } catch(e) { showResult('seo', 'Erro: ' + e.message); }
+  hideLoading('seo');
+}
+
+async function verificarConteudo() {
+  if (!checkKey()) return;
+  const conteudo = document.getElementById('ver-conteudo').value.trim();
+  if (!conteudo) { alert('Cole seu conteúdo primeiro.'); return; }
+  document.getElementById('result-ver').classList.remove('show');
+  document.getElementById('copy-ver').classList.remove('show');
+  showLoading('ver');
+  try {
+    showResult('ver', await callClaude(
+      `${DIRETRIZES}
+
+Você é especialista em conformidade com as Diretrizes da Comunidade Shopee Video.
+Analise o conteúdo fornecido e verifique se há riscos de punição.
+
+FORMATO DE RESPOSTA:
+VEREDICTO: [✅ APROVADO / ⚠️ ATENÇÃO / ❌ REPROVADO]
+
+PONTOS OK:
+- Liste o que está dentro das diretrizes
+
+RISCOS IDENTIFICADOS:
+- Liste cada item problemático com a diretriz violada
+
+SUGESTÃO DE CORREÇÃO:
+- Para cada risco, sugira como corrigir
+
+AVALIAÇÃO GERAL:
+- Resumo em 2 linhas sobre o conteúdo
+
+Seja específico e direto. Se estiver tudo ok, diga claramente.`,
+      `Tipo: ${document.getElementById('ver-tipo').value}
+Conteúdo:\n${conteudo}`
+    ));
+  } catch(e) { showResult('ver', 'Erro: ' + e.message); }
+  hideLoading('ver');
+}
+</script>
+</body>
+</html>
